@@ -1,4 +1,4 @@
-const CACHE = 'p903-v2';
+const CACHE = 'p903-v3';
 const FILES = ['./', './index.html', './style.css', './app.js', './questions.js', './manifest.json'];
 
 self.addEventListener('install', e => {
