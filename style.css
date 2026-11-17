@@ -8,12 +8,11 @@ body {
 }
 
 .app {
-    width: 100%; max-width: 430px;
-    height: 100dvh; /* Подстраивается точно под видимый экран браузера и приложения */
-    overflow-y: auto; /* Прокрутка только внутри контейнера, если вопрос очень длинный */
+    width: 100%; max-width: 430px; min-height: 100dvh;
     background: #1e293b; display: flex; flex-direction: column;
-    padding: 16px 16px calc(24px + env(safe-area-inset-bottom)) 16px;
+    padding: 16px 16px 180px 16px;
 }
+
 .top-bar { display: flex; gap: 6px; margin-bottom: 16px; }
 
 .lvl-btn {
@@ -36,6 +35,9 @@ body {
 .block-card.done { background: #064e3b; border-color: #10b981; }
 .block-card.done span { color: #34d399; font-weight: bold; }
 
+.block-card.partial { background: #451a03; border-color: #f59e0b; }
+.block-card.partial span { color: #fbbf24; font-weight: bold; }
+
 .quiz-screen { display: none; flex-direction: column; flex: 1; }
 .quiz-header {
     display: flex; justify-content: space-between; align-items: center;
@@ -48,7 +50,6 @@ body {
 
 .q-text { font-size: 17px; font-weight: 600; line-height: 1.4; margin-bottom: 14px; }
 
-/* Контейнер вариантов растягивается на всю свободную высоту, прижимая кнопки вниз */
 .options { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 
 .opt-item {
@@ -59,17 +60,24 @@ body {
 .opt-item.wrong { background: #7f1d1d; border-color: #ef4444; }
 .opt-item.correct { background: #064e3b; border-color: #10b981; }
 
-/* Кнопки в 2 ряда (сетка 2x2), крупные, прижаты к низу */
 .pad-row {
+    position: fixed;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 430px;
+    padding: 10px 16px 0 16px;
+    background: #1e293b;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin-top: auto;
-    padding-top: 12px;
+    z-index: 50;
 }
+
 .pad-btn {
-    height: 68px;
-    font-size: 22px;
+    height: 58px;
+    font-size: 20px;
     font-weight: bold;
     background: #0f172a; color: #f8fafc; border: 2px solid #334155;
     border-radius: 14px; cursor: pointer;
@@ -77,7 +85,6 @@ body {
 .pad-btn.wrong { background: #7f1d1d; border-color: #ef4444; color: #fca5a5; }
 .pad-btn.correct { background: #064e3b; border-color: #10b981; color: #6ee7b7; }
 
-/* На 4 уровне кнопка "Проверить" растягивается на оба столбца */
 #chk-btn { grid-column: span 2; font-size: 18px; }
 
 input {
@@ -89,9 +96,7 @@ input {
     margin-top: 10px; height: 60px; background: #2563eb; color: #fff;
     border: none; border-radius: 14px; font-size: 17px; font-weight: bold;
     display: none;
-
-.block-card.partial { background: #451a03; border-color: #f59e0b; }
-.block-card.partial span { color: #fbbf24; font-weight: bold; }
+}
 
 .rule-link {
     color: #fbbf24;
@@ -102,8 +107,6 @@ input {
     cursor: pointer;
 }
 
-
-/* Всплывающее окно со шпаргалкой */
 .modal-bg {
     position: fixed; inset: 0; background: rgba(15, 23, 42, 0.88);
     display: flex; align-items: center; justify-content: center;
@@ -120,7 +123,7 @@ input {
     width: 100%; padding: 12px; background: #2563eb; color: #fff;
     border: none; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer;
 }
-/* Экран пароля */
+
 .lock-screen {
     position: fixed; inset: 0; background: #0f172a;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -138,5 +141,3 @@ input {
     font-size: 16px; font-weight: bold; cursor: pointer;
 }
 .pass-err { color: #ef4444; font-size: 14px; margin-top: 10px; min-height: 20px; }
-
-}
