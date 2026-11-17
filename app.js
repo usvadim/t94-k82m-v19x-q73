@@ -36,11 +36,12 @@ const blockNames = [
     "1. Ответственные лица", "2. Группы персонала",
     "3. Выдача наряда", "4. Сроки и продление",
     "5. Распоряжения", "6. Подготовка РМ",
-    "7. Допуск и надзор", "8. Особые работы"
+    "7. Допуск и надзор", "8. Особые работы",
+    "9. Бланки, журналы, ключи"
 ];
 const letters = ["А", "Б", "В", "Г"];
 
-let curLvl = 1, curBlock = 0, queue = [], qIdx = 0, score = 100;
+let curLvl = 1, curBlock = 0, queue = [], qIdx = 0, rawScore = 0;
 let progress = JSON.parse(localStorage.getItem('p903_scores') || '{}');
 
 const menuScreen = document.getElementById('menu-screen');
@@ -57,8 +58,13 @@ document.querySelectorAll('.lvl-btn').forEach(btn => {
 
 document.getElementById('back-btn').onclick = showMenu;
 
-function saveScore(val) {
-    progress[`${curLvl}_${curBlock}`] = val;
+function getDisplayScore() {
+    // Не опускаем отображение ниже 0% и округляем до целого числа
+    return Math.max(0, Math.min(100, Math.round(rawScore)));
+}
+
+function saveScore() {
+    progress[`${curLvl}_${curBlock}`] = getDisplayScore();
     localStorage.setItem('p903_scores', JSON.stringify(progress));
 }
 
@@ -98,7 +104,6 @@ function openRuleModal(title, text) {
     document.body.appendChild(bg);
 }
 
-
 function showMenu() {
     quizScreen.style.display = 'none';
     menuScreen.style.display = 'grid';
@@ -111,12 +116,12 @@ function showMenu() {
         if (saved === 100) {
             card.className = 'block-card done';
             card.innerHTML = `<h3>${name}</h3><span>100%</span>`;
-        } else if (typeof saved === 'number') {
+        } else if (typeof saved === 'number' && saved > 0) {
             card.className = 'block-card partial';
             card.innerHTML = `<h3>${name}</h3><span>${saved}%</span>`;
         } else {
             card.className = 'block-card';
-            card.innerHTML = `<h3>${name}</h3><span>Открыть</span>`;
+            card.innerHTML = `<h3>${name}</h3><span>${saved === 0 ? '0%' : 'Открыть'}</span>`;
         }
         
         card.onclick = () => startBlock(idx);
@@ -131,24 +136,27 @@ function startBlock(bIdx) {
     if (queue.length === 0) return;
 
     qIdx = 0;
-    score = 100;
-    delete progress[`${curLvl}_${curBlock}`];
-    localStorage.setItem('p903_scores', JSON.stringify(progress));
+    rawScore = 0; // Начинаем с 0%
+    saveScore();
 
     menuScreen.style.display = 'none';
     quizScreen.style.display = 'flex';
     renderQ();
 }
 
+function updateHeader() {
+    document.getElementById('q-counter').innerText = `Раздел ${curBlock + 1} • ${qIdx + 1}/${queue.length} (${getDisplayScore()}%)`;
+}
+
 function renderQ() {
     const item = queue[qIdx];
-    document.getElementById('q-counter').innerText = `Раздел ${curBlock + 1} • ${qIdx + 1}/${queue.length} (${score}%)`;
+    const stepPoints = 100 / queue.length; // +10% при 10 вопросах, +5% при 20 вопросах
+    updateHeader();
     
     const qBox = document.getElementById('q-text');
     qBox.innerText = item.q;
     
-    // На 1 уровне добавляем кликабельный бейдж пункта со справкой и исключениями
-            if (curLvl === 1 && item.p && item.info) {
+    if (curLvl === 1 && item.p && item.info) {
         const badge = document.createElement('span');
         badge.style.cssText = 'margin-left: 6px; white-space: nowrap;';
         badge.innerHTML = `(<span style="color: #fbbf24; text-decoration: underline; text-underline-offset: 3px; font-weight: bold; cursor: pointer;">${item.p}</span>)`;
@@ -183,14 +191,17 @@ function renderQ() {
                     card.classList.add('correct');
                     btn.classList.add('correct');
                     padRow.querySelectorAll('.pad-btn').forEach(b => b.disabled = true);
+                    rawScore += stepPoints;
+                    saveScore();
+                    updateHeader();
                     setTimeout(nextStep, 750);
                 } else {
                     card.classList.add('wrong');
                     btn.classList.add('wrong');
                     btn.disabled = true;
-                    score = Math.max(0, score - 5);
-                    saveScore(score);
-                    document.getElementById('q-counter').innerText = `Раздел ${curBlock + 1} • ${qIdx + 1}/${queue.length} (${score}%)`;
+                    rawScore -= 5; // Снимаем 5% и держим минус в уме
+                    saveScore();
+                    updateHeader();
                 }
             };
             padRow.appendChild(btn);
@@ -209,12 +220,15 @@ function renderQ() {
             if (item.kw.some(k => val.includes(k))) {
                 inp.style.borderColor = '#10b981';
                 inp.disabled = true;
+                rawScore += stepPoints;
+                saveScore();
+                updateHeader();
                 setTimeout(nextStep, 750);
             } else {
                 inp.style.borderColor = '#ef4444';
-                score = Math.max(0, score - 5);
-                saveScore(score);
-                document.getElementById('q-counter').innerText = `Раздел ${curBlock + 1} • ${qIdx + 1}/${queue.length} (${score}%)`;
+                rawScore -= 5;
+                saveScore();
+                updateHeader();
             }
         };
     }
@@ -225,8 +239,9 @@ function nextStep() {
     if (qIdx < queue.length) {
         renderQ();
     } else {
-        saveScore(score);
-        if (score === 100) {
+        const finalScore = getDisplayScore();
+        saveScore();
+        if (finalScore === 100) {
             const hasNext = (window.questionsDB || []).some(x => x.b === curBlock + 1);
             if (curBlock + 1 < blockNames.length && hasNext) {
                 showBanner("100%! Следующий раздел...", () => startBlock(curBlock + 1));
@@ -234,7 +249,7 @@ function nextStep() {
                 showBanner("100%! Раздел пройден", showMenu);
             }
         } else {
-            showBanner(`Результат: ${score}%\nЗапускаем заново...`, () => startBlock(curBlock));
+            showBanner(`Результат: ${finalScore}%\nЗапускаем заново...`, () => startBlock(curBlock));
         }
     }
 }
