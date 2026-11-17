@@ -185,7 +185,10 @@ function renderQ() {
             const btn = document.createElement('button');
             btn.className = 'pad-btn';
             btn.innerText = letters[i];
-            btn.onclick = () => {
+
+            const handleSelect = () => {
+                if (btn.disabled) return;
+
                 if (text === item.a) {
                     card.classList.add('correct');
                     btn.classList.add('correct');
@@ -198,11 +201,15 @@ function renderQ() {
                     card.classList.add('wrong');
                     btn.classList.add('wrong');
                     btn.disabled = true;
-                    rawScore -= 5; // Снимаем 5% и держим минус в уме
+                    rawScore -= 5;
                     saveScore();
                     updateHeader();
                 }
             };
+
+            card.onclick = handleSelect;
+            btn.onclick = handleSelect;
+
             padRow.appendChild(btn);
         });
         optBox.appendChild(padRow);
