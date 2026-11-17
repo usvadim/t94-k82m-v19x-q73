@@ -8,11 +8,12 @@ body {
 }
 
 .app {
-    width: 100%; max-width: 430px; min-height: 100vh;
+    width: 100%; max-width: 430px;
+    height: 100dvh; /* Подстраивается точно под видимый экран браузера и приложения */
+    overflow-y: auto; /* Прокрутка только внутри контейнера, если вопрос очень длинный */
     background: #1e293b; display: flex; flex-direction: column;
-    padding: 16px 16px 50px 16px; /* Отступ снизу 50px для режима приложения */
+    padding: 16px 16px calc(24px + env(safe-area-inset-bottom)) 16px;
 }
-
 .top-bar { display: flex; gap: 6px; margin-bottom: 16px; }
 
 .lvl-btn {
