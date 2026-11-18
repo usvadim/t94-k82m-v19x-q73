@@ -317,10 +317,10 @@ if (curBlock + 1 < blockNames.length && hasNext) {
 showBanner("100%! Следующий раздел...", () => startBlock(curBlock + 1));
 } else {
 showBanner("100%! Раздел пройден", showMenu);
-}
-} else {
-showBanner(Результат: ${finalScore}%\nОшибок: ${errorsCount}\nЗапускаем заново..., () => startBlock(curBlock));
-}
-}
+            }
+        } else {
+            showBanner(`Результат: ${finalScore}%\nОшибок: ${errorsCount}\nЗапускаем заново...`, () => startBlock(curBlock));
+        }
+    }
 }
 showMenu();
