@@ -40,11 +40,14 @@ const blockNames = [
 ];
 const letters = ["А", "Б", "В", "Г"];
 
-let curLvl = 1, curBlock = 0, queue = [], qIdx = 0, rawScore = 0;
+let curLvl = 1, curBlock = 0, queue = [], viewIdx = 0, maxReachedIdx = 0;
+let rawScore = 0, errorsCount = 0, history = [];
 let progress = JSON.parse(localStorage.getItem('p903_scores') || '{}');
 
 const menuScreen = document.getElementById('menu-screen');
 const quizScreen = document.getElementById('quiz-screen');
+const prevQBtn = document.getElementById('prev-q-btn');
+const nextQBtn = document.getElementById('next-q-btn');
 
 document.querySelectorAll('.lvl-btn').forEach(btn => {
     btn.onclick = () => {
@@ -55,10 +58,21 @@ document.querySelectorAll('.lvl-btn').forEach(btn => {
     };
 });
 
-document.getElementById('back-btn').onclick = showMenu;
+prevQBtn.onclick = () => {
+    if (viewIdx > 0) {
+        viewIdx--;
+        renderQ();
+    }
+};
+
+nextQBtn.onclick = () => {
+    if (viewIdx < maxReachedIdx) {
+        viewIdx++;
+        renderQ();
+    }
+};
 
 function getDisplayScore() {
-    // Не опускаем отображение ниже 0% и округляем до целого числа
     return Math.max(0, Math.min(100, Math.round(rawScore)));
 }
 
@@ -73,7 +87,7 @@ function showBanner(text, callback) {
         position: fixed; inset: 0; background: rgba(15, 23, 42, 0.92);
         display: flex; align-items: center; justify-content: center;
         font-size: 22px; font-weight: bold; color: #f8fafc;
-        text-align: center; padding: 20px; z-index: 99;
+        text-align: center; padding: 20px; z-index: 99; white-space: pre-line;
     `;
     banner.innerText = text;
     document.body.appendChild(banner);
@@ -134,8 +148,11 @@ function startBlock(bIdx) {
     queue = data.filter(item => item.b === bIdx).sort(() => Math.random() - 0.5);
     if (queue.length === 0) return;
 
-    qIdx = 0;
-    rawScore = 0; // Начинаем с 0%
+    viewIdx = 0;
+    maxReachedIdx = 0;
+    rawScore = 0;
+    errorsCount = 0;
+    history = [];
     saveScore();
 
     menuScreen.style.display = 'none';
@@ -144,12 +161,16 @@ function startBlock(bIdx) {
 }
 
 function updateHeader() {
-    document.getElementById('q-counter').innerText = `Раздел ${curBlock + 1} • ${qIdx + 1}/${queue.length} (${getDisplayScore()}%)`;
+    document.getElementById('q-counter').innerText = `Раздел ${curBlock + 1} • ${viewIdx + 1}/${queue.length} • Ошибок: ${errorsCount}`;
+    prevQBtn.style.opacity = viewIdx > 0 ? '1' : '0.3';
+    prevQBtn.disabled = viewIdx === 0;
+    nextQBtn.style.opacity = viewIdx < maxReachedIdx ? '1' : '0.3';
+    nextQBtn.disabled = viewIdx === maxReachedIdx;
 }
 
 function renderQ() {
-    const item = queue[qIdx];
-    const stepPoints = 100 / queue.length; // +10% при 10 вопросах, +5% при 20 вопросах
+    const item = queue[viewIdx];
+    const stepPoints = 100 / queue.length;
     updateHeader();
     
     const qBox = document.getElementById('q-text');
@@ -166,17 +187,22 @@ function renderQ() {
     const optBox = document.getElementById('options');
     optBox.innerHTML = '';
 
-    if (curLvl <= 3) {
+    // Создаем или достаем состояние вопроса из истории для безопасного просмотра
+    if (!history[viewIdx]) {
         let opts = [item.a];
         if (curLvl === 1) opts = opts.concat(item.w1);
         if (curLvl === 2) opts = opts.concat(item.w2);
         if (curLvl === 3) opts.push(item.w3);
         opts.sort(() => Math.random() - 0.5);
+        history[viewIdx] = { opts: opts, wrongPicked: [], solved: false, userText: '' };
+    }
+    const state = history[viewIdx];
 
+    if (curLvl <= 3) {
         const padRow = document.createElement('div');
         padRow.className = 'pad-row';
 
-        opts.forEach((text, i) => {
+        state.opts.forEach((text, i) => {
             const card = document.createElement('div');
             card.className = 'opt-item';
             card.innerHTML = `<b>${letters[i]}.</b> ${text}`;
@@ -186,21 +212,42 @@ function renderQ() {
             btn.className = 'pad-btn';
             btn.innerText = letters[i];
 
+            // Восстанавливаем подсветку и блокировку, если вернулись к этому вопросу
+            if (state.wrongPicked.includes(text)) {
+                card.classList.add('wrong');
+                btn.classList.add('wrong');
+                btn.disabled = true;
+            }
+            if (state.solved) {
+                btn.disabled = true;
+                if (text === item.a) {
+                    card.classList.add('correct');
+                    btn.classList.add('correct');
+                }
+            }
+
             const handleSelect = () => {
-                if (btn.disabled) return;
+                if (btn.disabled || state.solved) return;
 
                 if (text === item.a) {
+                    state.solved = true;
                     card.classList.add('correct');
                     btn.classList.add('correct');
                     padRow.querySelectorAll('.pad-btn').forEach(b => b.disabled = true);
                     rawScore += stepPoints;
                     saveScore();
                     updateHeader();
-                    setTimeout(nextStep, 750);
+                    
+                    const targetIdx = viewIdx;
+                    setTimeout(() => {
+                        if (viewIdx === targetIdx) advanceProgress();
+                    }, 750);
                 } else {
+                    state.wrongPicked.push(text);
                     card.classList.add('wrong');
                     btn.classList.add('wrong');
                     btn.disabled = true;
+                    errorsCount++;
                     rawScore -= 5;
                     saveScore();
                     updateHeader();
@@ -209,29 +256,45 @@ function renderQ() {
 
             card.onclick = handleSelect;
             btn.onclick = handleSelect;
-
             padRow.appendChild(btn);
         });
         optBox.appendChild(padRow);
     } else {
         optBox.innerHTML = `
-            <input type="text" id="ans-in" placeholder="Введите ответ...">
+            <input type="text" id="ans-in" placeholder="Введите ответ..." value="${state.userText}">
             <div class="pad-row">
                 <button class="pad-btn" id="chk-btn">Проверить</button>
             </div>
         `;
-        document.getElementById('chk-btn').onclick = () => {
-            const inp = document.getElementById('ans-in');
+        const inp = document.getElementById('ans-in');
+        const chkBtn = document.getElementById('chk-btn');
+
+        if (state.solved) {
+            inp.style.borderColor = '#10b981';
+            inp.disabled = true;
+            chkBtn.disabled = true;
+        }
+
+        chkBtn.onclick = () => {
+            if (state.solved) return;
             const val = inp.value.trim().toLowerCase();
+            state.userText = inp.value;
             if (item.kw.some(k => val.includes(k))) {
+                state.solved = true;
                 inp.style.borderColor = '#10b981';
                 inp.disabled = true;
+                chkBtn.disabled = true;
                 rawScore += stepPoints;
                 saveScore();
                 updateHeader();
-                setTimeout(nextStep, 750);
+                
+                const targetIdx = viewIdx;
+                setTimeout(() => {
+                    if (viewIdx === targetIdx) advanceProgress();
+                }, 750);
             } else {
                 inp.style.borderColor = '#ef4444';
+                errorsCount++;
                 rawScore -= 5;
                 saveScore();
                 updateHeader();
@@ -240,24 +303,24 @@ function renderQ() {
     }
 }
 
-function nextStep() {
-    qIdx++;
-    if (qIdx < queue.length) {
+function advanceProgress() {
+    if (maxReachedIdx + 1 < queue.length) {
+        maxReachedIdx++;
+        viewIdx = maxReachedIdx;
         renderQ();
     } else {
         const finalScore = getDisplayScore();
         saveScore();
-        if (finalScore === 100) {
-            const hasNext = (window.questionsDB || []).some(x => x.b === curBlock + 1);
-            if (curBlock + 1 < blockNames.length && hasNext) {
-                showBanner("100%! Следующий раздел...", () => startBlock(curBlock + 1));
-            } else {
-                showBanner("100%! Раздел пройден", showMenu);
-            }
-        } else {
-            showBanner(`Результат: ${finalScore}%\nЗапускаем заново...`, () => startBlock(curBlock));
-        }
-    }
+if (finalScore === 100) {
+const hasNext = (window.questionsDB || []).some(x => x.b === curBlock + 1);
+if (curBlock + 1 < blockNames.length && hasNext) {
+showBanner("100%! Следующий раздел...", () => startBlock(curBlock + 1));
+} else {
+showBanner("100%! Раздел пройден", showMenu);
 }
-
+} else {
+showBanner(Результат: ${finalScore}%\nОшибок: ${errorsCount}\nЗапускаем заново..., () => startBlock(curBlock));
+}
+}
+}
 showMenu();
